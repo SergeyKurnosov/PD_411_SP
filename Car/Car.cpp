@@ -162,10 +162,12 @@ public:
 		}
 
 		if (tank.get_fuel_level() == 0)
+		{
 			engine.stop();
-
+			in_motion = false;
+		}
 	}
-	
+
 
 	void control()
 	{
@@ -179,27 +181,51 @@ public:
 
 
 			panel();
-			cout << "Press 'Enter' to get in" << endl;
-			key = _getch(); // Îזעהאוע םאזאעטו ךכאגטרט 
+			cout << "Press 'Enter' to get in\nPress 'Q' to start engine\nPress 'W' to start motion\nPress 'S' to stop motion\nPress 'F' to fill up the tank" << endl;
+			key = _getch();
 			switch (key)
 			{
 			case Enter:
-				if (driver_inside)get_out();
-				else get_in();
+				if (!in_motion)
+				{
+					if (driver_inside)get_out();
+					else get_in();
+				}
+				break;
+			case 'Q':
+			case 'q':
+				if (driver_inside && tank.get_fuel_level() > 0)
+				{
+					if (!engine.started())
+					{
+						engine.start();
+						cout << "Engine start\n";
+					}
+					else
+					{
+						engine.stop();
+						cout << "Engine stoped\n";
+					}
+				}
+				break;
+			case 'W':
+			case 'w':
+				if (driver_inside && engine.started())
+					in_motion = true;
 				break;
 			case 'S':
 			case 's':
 				if (driver_inside)
-				{
-					engine.start();
-					cout << "Engine start\n";
-				}
+					in_motion = false;
 				break;
 			case 'F':
 			case 'f':
-				double amount;
-				cout << "How much do you want? "; cin >> amount;
-				tank.fill(amount);
+				if (!in_motion)
+				{
+					double amount;
+					cout << "How much do you want? "; cin >> amount;
+					tank.fill(amount);
+				}
 				break;
 			}
 			std::this_thread::sleep_for(std::chrono::seconds(1));
@@ -207,15 +233,11 @@ public:
 	}
 	void panel()const
 	{
-		//	while (driver_inside)
-		//	{
-			//	system("CLS");
 		cout << "=================================================================\n";
 		cout << "Fuel level:\t" << tank.get_fuel_level() << " liters.\n";
 		cout << "Engine is:\t" << (engine.started() ? "started" : "stoped") << endl;
 		cout << "Driver inside is:\t" << (driver_inside ? "yes" : "no") << endl;
 		cout << "=================================================================\n";
-		//	}
 	}
 	void info()const
 	{
