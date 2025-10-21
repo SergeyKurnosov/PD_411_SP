@@ -1,5 +1,7 @@
 #include <iostream>
 #include<conio.h>
+#include<thread>
+#include<chrono>
 using std::cin;
 using std::cout;
 using std::endl;
@@ -30,6 +32,15 @@ public:
 		fuel_level += fuel;
 		if (fuel_level > VOLUME)fuel_level = VOLUME;
 	}
+	void consuption(double volume)
+	{
+		if (volume >= fuel_level || volume >= VOLUME)
+		{
+			fuel_level = 0;
+			return;
+		}
+		fuel_level -= volume;
+	}
 	Tank(int volume) :
 		VOLUME
 		(
@@ -55,6 +66,7 @@ public:
 
 #define MIN_ENGINE_CONSUPTION 5
 #define MAX_ENGINE_CONSUPTION 25
+#define ENGINE_CONSUPTION_IDLING 0.0003
 class Engine
 {
 	double consuption_per_second;
@@ -111,6 +123,7 @@ class Car
 	const int MAX_SPEED;
 	int speed;
 	bool driver_inside;
+	bool in_motion;
 public:
 	Car(double consuption, int volume, int max_speed) :
 		engine(consuption),
@@ -118,12 +131,13 @@ public:
 		speed(0),
 		MAX_SPEED
 		(
-			max_speed<MAX_SPEED_LOWER_LIMIT?MAX_SPEED_LOWER_LIMIT:
-			max_speed>MAX_SPEED_UPPER_LIMIT?MAX_SPEED_UPPER_LIMIT:
+			max_speed<MAX_SPEED_LOWER_LIMIT ? MAX_SPEED_LOWER_LIMIT :
+			max_speed>MAX_SPEED_UPPER_LIMIT ? MAX_SPEED_UPPER_LIMIT :
 			max_speed
 		)
 	{
 		driver_inside = false;
+		in_motion = false;
 		cout << "Your car is ready:-)\t" << this << endl;
 	}
 	~Car()
@@ -134,25 +148,52 @@ public:
 	void get_in()
 	{
 		driver_inside = true;
-		panel();
 	}
 	void get_out()
 	{
 		driver_inside = false;
 	}
+	void consuptin()
+	{
+		if (engine.started())
+		{
+			if (in_motion)tank.consuption(engine.get_consuption_per_second());
+			else tank.consuption(ENGINE_CONSUPTION_IDLING);
+		}
+
+		if (tank.get_fuel_level() == 0)
+			engine.stop();
+
+	}
+	
 
 	void control()
 	{
-		cout << "Press 'Enter' to get in" << endl;
+
 		char key;
 		do
 		{
+			if (engine.started())
+				consuptin();
+
+
+
+			panel();
+			cout << "Press 'Enter' to get in" << endl;
 			key = _getch(); // Îזעהאוע םאזאעטו ךכאגטרט 
 			switch (key)
 			{
 			case Enter:
 				if (driver_inside)get_out();
 				else get_in();
+				break;
+			case 'S':
+			case 's':
+				if (driver_inside)
+				{
+					engine.start();
+					cout << "Engine start\n";
+				}
 				break;
 			case 'F':
 			case 'f':
@@ -161,16 +202,20 @@ public:
 				tank.fill(amount);
 				break;
 			}
+			std::this_thread::sleep_for(std::chrono::seconds(1));
 		} while (key != Escape);
 	}
 	void panel()const
 	{
-		while (driver_inside)
-		{
-			system("CLS");
-			cout << "Fuel level:\t" << tank.get_fuel_level() << " liters.\n";
-			cout << "Engine is:\t" << (engine.started() ? "started" : "stoped") << endl;
-		}
+		//	while (driver_inside)
+		//	{
+			//	system("CLS");
+		cout << "=================================================================\n";
+		cout << "Fuel level:\t" << tank.get_fuel_level() << " liters.\n";
+		cout << "Engine is:\t" << (engine.started() ? "started" : "stoped") << endl;
+		cout << "Driver inside is:\t" << (driver_inside ? "yes" : "no") << endl;
+		cout << "=================================================================\n";
+		//	}
 	}
 	void info()const
 	{
@@ -206,7 +251,7 @@ int main()
 	engine.info();
 #endif 
 
-	Car bmw(10, 80, 270);
+	Car bmw(15, 80, 270);
 	bmw.info();
 	bmw.control();
 
