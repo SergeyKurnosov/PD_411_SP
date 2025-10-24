@@ -10,7 +10,10 @@ using std::endl;
 
 #define Enter 13
 #define Escape 27
-
+#define UpArrow 72
+#define DownArrow 80
+#define LeftArrow 75
+#define RightArrow 77
 
 
 #define MIN_TANK_VOLUM 25
@@ -69,12 +72,23 @@ public:
 class Engine
 {
 	double consuption_per_second;
+	
 	bool is_started;
 public:
 	const double CONSUMPTION;
+	const double CONSUPTION_PER_SECOND;
 	double get_consuption_per_second()const
 	{
 		return consuption_per_second;
+	}
+	void set_consuption_per_second(int speed)
+	{
+		if (speed == 0)consuption_per_second = CONSUPTION_PER_SECOND;
+		else if (speed < 60)consuption_per_second = CONSUPTION_PER_SECOND * 20 / 3;
+		else if (speed < 100)consuption_per_second = CONSUPTION_PER_SECOND * 7 / 3 * 2;
+		else if (speed < 140)consuption_per_second = CONSUPTION_PER_SECOND * 20 / 3;
+		else if (speed < 200)consuption_per_second = CONSUPTION_PER_SECOND * 25 / 3;
+		else consuption_per_second = CONSUPTION_PER_SECOND * 10;
 	}
 	Engine(double consuption) :
 		CONSUMPTION
@@ -82,9 +96,10 @@ public:
 			consuption<MIN_ENGINE_CONSUPTION ? MIN_ENGINE_CONSUPTION :
 			consuption>MAX_ENGINE_CONSUPTION ? MAX_ENGINE_CONSUPTION :
 			consuption
-		)
+		),
+		CONSUPTION_PER_SECOND(CONSUMPTION*3e-5)
 	{
-		consuption_per_second = CONSUMPTION * 3e-5;
+		consuption_per_second = CONSUPTION_PER_SECOND;
 		is_started = false;
 		cout << "Engine is ready:\t" << this << endl;
 	}
@@ -121,21 +136,24 @@ class Car
 	Tank tank;
 	const int MAX_SPEED;
 	int speed;
+	int acceleration;
 	bool driver_inside;
 	struct //Threads
 	{
 		std::thread panel_thread;
 		std::thread engine_idle_thread;
+		std::thread free_wheeling_thread;
 	}threads;
 public:
-	Car(double consuption, int volume, int max_speed) :
+	Car(double consuption, int volume, int max_speed = 250, int acceleration = 15) :
 		engine(consuption),
 		tank(volume),
+		acceleration(15),
 		speed(0),
 		MAX_SPEED
 		(
-			max_speed<MAX_SPEED_LOWER_LIMIT?MAX_SPEED_LOWER_LIMIT:
-			max_speed>MAX_SPEED_UPPER_LIMIT?MAX_SPEED_UPPER_LIMIT:
+			max_speed<MAX_SPEED_LOWER_LIMIT ? MAX_SPEED_LOWER_LIMIT :
+			max_speed>MAX_SPEED_UPPER_LIMIT ? MAX_SPEED_UPPER_LIMIT :
 			max_speed
 		)
 	{
@@ -174,6 +192,34 @@ public:
 		engine.stop();
 		if (threads.engine_idle_thread.joinable())threads.engine_idle_thread.join();
 	}
+	void accelerate()
+	{
+		if (driver_inside && engine.started())
+		{
+			speed += acceleration;
+			if (speed > MAX_SPEED)speed = MAX_SPEED;
+
+			if (!threads.free_wheeling_thread.joinable())threads.free_wheeling_thread =
+				std::thread(&Car::free_wheeling, this);
+			std::this_thread::sleep_for(1s);
+		}
+
+	}
+
+	void slow_down()
+	{
+		if (driver_inside)
+		{
+			speed -= acceleration;
+			if (speed < 0)
+			{
+				speed = 0;
+				if (threads.free_wheeling_thread.joinable())
+					threads.free_wheeling_thread.join();
+			}
+			std::this_thread::sleep_for(1s);
+		}
+	}
 
 	void control()
 	{
@@ -182,7 +228,7 @@ public:
 		do
 		{
 			key = 0;
-			if(_kbhit())key = _getch(); // Îזעהאוע םאזאעטו ךכאגטרט 
+			if (_kbhit())key = _getch(); // Îזעהאוע םאזאעטו ךכאגטרט 
 			switch (key)
 			{
 			case Enter:
@@ -200,14 +246,39 @@ public:
 				if (engine.started())stop();
 				else start();
 				break;
+			case 'W':
+			case 'w':
+			case UpArrow:
+				accelerate();
+				break;
+			case 'S':
+			case 's':
+			case DownArrow:
+				slow_down();
+				break;
+
 			case Escape:
+				speed = 0;
+				if (threads.free_wheeling_thread.joinable())
+					threads.free_wheeling_thread.join();
+				stop();
 				get_out();
 			}
 			if (tank.get_fuel_level() == 0 && threads.engine_idle_thread.joinable())
 				stop();
-				//threads.engine_idle_thread.join();
+			//threads.engine_idle_thread.join();
 		} while (key != Escape);
 	}
+	void free_wheeling()
+	{
+		while (speed)
+		{
+			speed--;
+			engine.set_consuption_per_second(speed);
+			std::this_thread::sleep_for(1s);
+		}
+	}
+
 	void engine_idle()
 	{
 		while (engine.started() && tank.give_fuel(engine.get_consuption_per_second()))
@@ -222,6 +293,10 @@ public:
 		while (driver_inside)
 		{
 			system("CLS");
+			for (int i = 0; i < speed / 2.5; i++)cout << "|";
+			cout << endl;
+			cout << "Speed:\t" << speed << " km/h\n";
+			cout << "Consuption per second" << engine.get_consuption_per_second() << " liters\n";
 			cout << "Fuel level:\t" << tank.get_fuel_level() << " liters.";
 			if (tank.get_fuel_level() < 5)
 			{
@@ -272,6 +347,5 @@ int main()
 	Car bmw(10, 80, 270);
 	bmw.info();
 	bmw.control();
-
 }
 
