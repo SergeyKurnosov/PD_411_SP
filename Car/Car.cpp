@@ -122,10 +122,13 @@ class Car
 	const int MAX_SPEED;
 	int speed;
 	bool driver_inside;
+	bool car_in_motion;
+	int engine_speed;
 	struct //Threads
 	{
 		std::thread panel_thread;
 		std::thread engine_idle_thread;
+		std::thread engine_not_idle_thread;
 	}threads;
 public:
 	Car(double consuption, int volume, int max_speed) :
@@ -134,12 +137,14 @@ public:
 		speed(0),
 		MAX_SPEED
 		(
-			max_speed<MAX_SPEED_LOWER_LIMIT?MAX_SPEED_LOWER_LIMIT:
-			max_speed>MAX_SPEED_UPPER_LIMIT?MAX_SPEED_UPPER_LIMIT:
+			max_speed<MAX_SPEED_LOWER_LIMIT ? MAX_SPEED_LOWER_LIMIT :
+			max_speed>MAX_SPEED_UPPER_LIMIT ? MAX_SPEED_UPPER_LIMIT :
 			max_speed
 		)
 	{
 		driver_inside = false;
+		car_in_motion = false;
+		engine_speed = 0;
 		cout << "Your car is ready:-)\t" << this << endl;
 	}
 	~Car()
@@ -166,6 +171,7 @@ public:
 		if (driver_inside && tank.get_fuel_level())
 		{
 			engine.start();
+			engine_speed = 800;
 			threads.engine_idle_thread = std::thread(&Car::engine_idle, this);
 		}
 	}
@@ -182,7 +188,7 @@ public:
 		do
 		{
 			key = 0;
-			if(_kbhit())key = _getch(); // Îזעהאוע םאזאעטו ךכאגטרט 
+			if (_kbhit())key = _getch(); // Îזעהאוע םאזאעטו ךכאגטרט 
 			switch (key)
 			{
 			case Enter:
@@ -200,17 +206,45 @@ public:
 				if (engine.started())stop();
 				else start();
 				break;
+			case 'W':
+			case 'w':
+				if (engine.started() && driver_inside)
+				{
+					engine_speed += 100;
+					if (threads.engine_idle_thread.joinable())
+					{
+						threads.engine_idle_thread.join();
+					}
+
+					if (!threads.engine_not_idle_thread.joinable())
+					{
+						threads.engine_not_idle_thread = std::thread(&Car::engine_not_idle, this);
+					}
+
+				}
+
+
+				break;
 			case Escape:
 				get_out();
 			}
 			if (tank.get_fuel_level() == 0 && threads.engine_idle_thread.joinable())
 				stop();
-				//threads.engine_idle_thread.join();
+
 		} while (key != Escape);
 	}
 	void engine_idle()
 	{
 		while (engine.started() && tank.give_fuel(engine.get_consuption_per_second()))
+		{
+			std::this_thread::sleep_for(1s);
+		}
+	}
+
+	void engine_not_idle()
+	{
+		//	while (engine.started()&& car_in_motion && tank.give_fuel(engine.get_consuption_per_second() + ((engine_speed-800)/100)))
+		while (engine.started() && car_in_motion && tank.give_fuel(engine.get_consuption_per_second() * 2))
 		{
 			std::this_thread::sleep_for(1s);
 		}
