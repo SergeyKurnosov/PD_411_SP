@@ -18,6 +18,7 @@ using std::endl;
 
 #define MIN_TANK_VOLUM 25
 #define MAX_TANK_VOLUM 125
+
 class Tank
 {
 	const int VOLUME;
@@ -286,7 +287,6 @@ public:
 			std::this_thread::sleep_for(1s);
 		}
 	}
-
 
 	void panel()const
 	{
